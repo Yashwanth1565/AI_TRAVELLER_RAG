@@ -123,7 +123,7 @@ def show_route_map(places):
 # SIDEBAR
 # -----------------------------
 with st.sidebar:
-    st.title("🌍 AI Planner")
+    st.title("🧭 AI Planner")
 
     if st.button("➕ New Trip"):
         name = f"Trip {len(st.session_state.chats)+1}"
