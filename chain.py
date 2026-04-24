@@ -1,40 +1,22 @@
 # -----------------------------
-# CLEAN ENV
+# IMPORTS
 # -----------------------------
 import os
-os.environ.pop("LANGCHAIN_TRACING", None)
-
-# -----------------------------
-# LOAD ENV (LOCAL ONLY)
-# -----------------------------
 from dotenv import load_dotenv
 load_dotenv()
 
-# -----------------------------
-# SAFE IMPORT WIKIPEDIA
-# -----------------------------
-try:
-    import wikipedia
-    WIKI_AVAILABLE = True
-except:
-    WIKI_AVAILABLE = False
-
-# -----------------------------
-# IMPORTS
-# -----------------------------
 from langchain_groq import ChatGroq
 from langchain_core.prompts import ChatPromptTemplate, MessagesPlaceholder
 from langchain_core.messages import HumanMessage, AIMessage
 from langchain_core.chat_history import InMemoryChatMessageHistory
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
-from langchain_text_splitters import RecursiveCharacterTextSplitter
 
 from langchain_community.vectorstores import Chroma
 from langchain_community.embeddings import HuggingFaceEmbeddings
 
 # -----------------------------
-# API KEYS (LOCAL + CLOUD SAFE)
+# API KEYS
 # -----------------------------
 GROQ_API_KEY = os.getenv("GROQ_API_KEY")
 LANGCHAIN_API_KEY = os.getenv("LANGCHAIN_API_KEY")
@@ -44,11 +26,6 @@ os.environ["LANGCHAIN_TRACING_V2"] = "true"
 os.environ["LANGCHAIN_PROJECT"] = "AI_Travel_Planner"
 
 # -----------------------------
-# CONFIG
-# -----------------------------
-CHROMA_DIR = "./travel_db"
-
-# -----------------------------
 # EMBEDDINGS
 # -----------------------------
 embedding = HuggingFaceEmbeddings(
@@ -56,53 +33,21 @@ embedding = HuggingFaceEmbeddings(
 )
 
 # -----------------------------
-# DATA FETCH
-# -----------------------------
-def fetch_wikipedia(place):
-    if not WIKI_AVAILABLE:
-        return ""
-    try:
-        return wikipedia.page(place).content
-    except:
-        return ""
-
-def fallback_docs():
-    return [
-        Document(page_content="Goa beaches Baga, Calangute, nightlife."),
-        Document(page_content="Hyderabad Charminar, Golconda Fort."),
-        Document(page_content="Kerala backwaters, Munnar hills."),
-        Document(page_content="Paris Eiffel Tower, Louvre."),
-    ]
-
-# -----------------------------
-# CREATE DB
+# SAFE STATIC DATA (NO CRASH)
 # -----------------------------
 def create_travel_db():
-    places = ["Goa", "Hyderabad", "Kerala", "Paris"]
+    docs = [
+        Document(page_content="Goa: Baga Beach, Calangute, nightlife, seafood."),
+        Document(page_content="Hyderabad: Charminar, Golconda Fort, biryani."),
+        Document(page_content="Kerala: Alleppey backwaters, Munnar hills."),
+        Document(page_content="Jaipur: Amber Fort, Hawa Mahal, City Palace."),
+        Document(page_content="Paris: Eiffel Tower, Louvre Museum."),
+        Document(page_content="Dubai: Burj Khalifa, Desert Safari."),
+    ]
 
-    raw_docs = []
-    for p in places:
-        data = fetch_wikipedia(p)
-        if data:
-            raw_docs.append(Document(page_content=data))
+    return Chroma.from_documents(docs, embedding)
 
-    if not raw_docs:
-        raw_docs = fallback_docs()
-
-    splitter = RecursiveCharacterTextSplitter(chunk_size=500, chunk_overlap=50)
-    docs = splitter.split_documents(raw_docs)
-
-    db = Chroma.from_documents(docs, embedding, persist_directory=CHROMA_DIR)
-    db.persist()
-    return db
-
-# -----------------------------
-# LOAD DB
-# -----------------------------
-if not os.path.exists(CHROMA_DIR):
-    vectorstore = create_travel_db()
-else:
-    vectorstore = Chroma(persist_directory=CHROMA_DIR, embedding_function=embedding)
+vectorstore = create_travel_db()
 
 # -----------------------------
 # MEMORY
@@ -118,6 +63,9 @@ def get_memory(chat_id):
 # LLM
 # -----------------------------
 def get_llm(temp=0.7):
+    if not GROQ_API_KEY:
+        raise ValueError("Missing GROQ_API_KEY")
+
     return ChatGroq(
         model="llama-3.3-70b-versatile",
         groq_api_key=GROQ_API_KEY,
@@ -129,7 +77,7 @@ def get_llm(temp=0.7):
 # -----------------------------
 def rewrite_query(question):
     prompt = ChatPromptTemplate.from_template("""
-Convert query into detailed travel query.
+Convert user query into a clear travel planning request.
 
 Query: {question}
 """)
@@ -150,7 +98,7 @@ def build_context(docs):
 # -----------------------------
 def extract_locations(text):
     prompt = ChatPromptTemplate.from_template("""
-Extract place names. Return comma-separated.
+Extract place names. Return comma-separated only.
 
 {text}
 """)
@@ -167,9 +115,19 @@ def generate_response(question, memory):
     context = build_context(docs)
 
     prompt = ChatPromptTemplate.from_messages([
-        ("system", "You are a travel planner. Give itinerary, food, tips."),
+        ("system", """
+You are an AI Travel Planner.
+
+Provide:
+- Day-wise itinerary
+- Must visit places
+- Food suggestions
+- Tips
+
+Keep it simple and useful.
+"""),
         MessagesPlaceholder("chat_history"),
-        ("human", "Query: {question}\nContext:\n{context}")
+        ("human", "Query: {question}\n\nContext:\n{context}")
     ])
 
     chain = prompt | get_llm() | StrOutputParser()
