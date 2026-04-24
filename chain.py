@@ -12,9 +12,6 @@ from langchain_core.chat_history import InMemoryChatMessageHistory
 from langchain_core.documents import Document
 from langchain_core.output_parsers import StrOutputParser
 
-from langchain_community.vectorstores import Chroma
-from langchain_community.embeddings import HuggingFaceEmbeddings
-
 # -----------------------------
 # API KEYS
 # -----------------------------
@@ -26,28 +23,16 @@ os.environ["LANGCHAIN_TRACING_V2"] = "true"
 os.environ["LANGCHAIN_PROJECT"] = "AI_Travel_Planner"
 
 # -----------------------------
-# EMBEDDINGS
+# SIMPLE IN-MEMORY KNOWLEDGE BASE
 # -----------------------------
-embedding = HuggingFaceEmbeddings(
-    model_name="sentence-transformers/all-MiniLM-L6-v2"
-)
-
-# -----------------------------
-# SAFE STATIC DATA (NO CRASH)
-# -----------------------------
-def create_travel_db():
-    docs = [
-        Document(page_content="Goa: Baga Beach, Calangute, nightlife, seafood."),
-        Document(page_content="Hyderabad: Charminar, Golconda Fort, biryani."),
-        Document(page_content="Kerala: Alleppey backwaters, Munnar hills."),
-        Document(page_content="Jaipur: Amber Fort, Hawa Mahal, City Palace."),
-        Document(page_content="Paris: Eiffel Tower, Louvre Museum."),
-        Document(page_content="Dubai: Burj Khalifa, Desert Safari."),
-    ]
-
-    return Chroma.from_documents(docs, embedding)
-
-vectorstore = create_travel_db()
+docs = [
+    Document(page_content="Goa: beaches, nightlife, Baga, Calangute"),
+    Document(page_content="Hyderabad: Charminar, Golconda Fort, biryani"),
+    Document(page_content="Kerala: backwaters, Munnar hills"),
+    Document(page_content="Jaipur: Amber Fort, Hawa Mahal"),
+    Document(page_content="Paris: Eiffel Tower, Louvre Museum"),
+    Document(page_content="Dubai: Burj Khalifa, Desert Safari"),
+]
 
 # -----------------------------
 # MEMORY
@@ -73,25 +58,29 @@ def get_llm(temp=0.7):
     )
 
 # -----------------------------
+# SIMPLE RETRIEVAL (RAG STYLE)
+# -----------------------------
+def retrieve_docs(query):
+    results = []
+    for d in docs:
+        if any(word.lower() in d.page_content.lower() for word in query.split()):
+            results.append(d)
+    return results[:3]
+
+def build_context(docs):
+    return "\n\n".join([d.page_content for d in docs])
+
+# -----------------------------
 # QUERY REWRITE
 # -----------------------------
 def rewrite_query(question):
     prompt = ChatPromptTemplate.from_template("""
-Convert user query into a clear travel planning request.
+Convert user query into a travel planning query.
 
 Query: {question}
 """)
     chain = prompt | get_llm(0) | StrOutputParser()
     return chain.invoke({"question": question})
-
-# -----------------------------
-# RETRIEVE
-# -----------------------------
-def retrieve_docs(q):
-    return vectorstore.as_retriever(search_kwargs={"k": 4}).get_relevant_documents(q)
-
-def build_context(docs):
-    return "\n\n".join([d.page_content for d in docs])
 
 # -----------------------------
 # EXTRACT LOCATIONS
@@ -111,8 +100,8 @@ Extract place names. Return comma-separated only.
 # -----------------------------
 def generate_response(question, memory):
     refined = rewrite_query(question)
-    docs = retrieve_docs(refined)
-    context = build_context(docs)
+    docs_found = retrieve_docs(refined)
+    context = build_context(docs_found)
 
     prompt = ChatPromptTemplate.from_messages([
         ("system", """
@@ -122,9 +111,9 @@ Provide:
 - Day-wise itinerary
 - Must visit places
 - Food suggestions
-- Tips
+- Travel tips
 
-Keep it simple and useful.
+Keep it simple and helpful.
 """),
         MessagesPlaceholder("chat_history"),
         ("human", "Query: {question}\n\nContext:\n{context}")
