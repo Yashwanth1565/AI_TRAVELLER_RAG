@@ -1,0 +1,56 @@
+# -----------------------------
+# 🔐 Environment & Secrets
+# -----------------------------
+.env
+.env.*
+*.env
+
+# -----------------------------
+# 🧠 Vector DB / Local Storage
+# -----------------------------
+travel_db/
+chroma_db/
+*.sqlite3
+
+# -----------------------------
+# 🐍 Python Cache / Build Files
+# -----------------------------
+__pycache__/
+*.pyc
+*.pyo
+*.pyd
+*.pkl
+
+# -----------------------------
+# 🧪 Virtual Environment
+# -----------------------------
+venv/
+env/
+.venv/
+
+# -----------------------------
+# 📦 Build / Distribution
+# -----------------------------
+build/
+dist/
+*.egg-info/
+
+# -----------------------------
+# 💻 IDE / Editor Files
+# -----------------------------
+.vscode/
+.idea/
+
+# -----------------------------
+# 🧾 Logs & Temporary Files
+# -----------------------------
+*.log
+*.tmp
+.DS_Store
+Thumbs.db
+
+# -----------------------------
+# 🚫 Sensitive Local Files
+# -----------------------------
+groqapi.txt
+langsmithapi.txt
