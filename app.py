@@ -1,7 +1,7 @@
 import streamlit as st
 from chain import get_response
 
-st.set_page_config(page_title="AI Travel Planner", layout="wide")
+st.set_page_config(page_title="YatriKosha", layout="wide")
 
 # -----------------------------
 # 🌟 PREMIUM CSS (ENHANCED)
@@ -123,7 +123,7 @@ def show_route_map(places):
 # SIDEBAR
 # -----------------------------
 with st.sidebar:
-    st.title("🌍 Planner")
+    st.title("🌍 AI Planner")
 
     if st.button("➕ New Trip"):
         name = f"Trip {len(st.session_state.chats)+1}"
@@ -148,7 +148,7 @@ with st.sidebar:
 # -----------------------------
 # HEADER
 # -----------------------------
-st.markdown("<div class='header'>🌍 AI Travel Planner</div>", unsafe_allow_html=True)
+st.markdown("<div class='header'>YatriKosha Planner</div>", unsafe_allow_html=True)
 st.markdown("<div class='subtext'>Smart trips powered by AI ✈️</div>", unsafe_allow_html=True)
 
 st.success("🧠 LangSmith Tracing Enabled (V2)")
